@@ -1,21 +1,21 @@
 """
-Zynochat Auth Proxy — FastAPI
-Keys sirf .env file mein hain, frontend ko kabhi nahi milti
+Zynochat Auth Server — FastAPI
+- HTML files serve karta hai /static folder se
+- Supabase keys sirf .env mein hain
 """
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, EmailStr
-import httpx
-import os
+import httpx, os
 from dotenv import load_dotenv
 
-load_dotenv()  # .env file se keys lo
+load_dotenv()
 
-# ── Keys sirf yahan, .env se ──────────────────
 SUPABASE_URL      = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
-# ─────────────────────────────────────────────
 
 if not SUPABASE_URL or not SUPABASE_ANON_KEY:
     raise RuntimeError("❌ .env mein SUPABASE_URL aur SUPABASE_ANON_KEY set karo!")
@@ -26,22 +26,51 @@ SUPABASE_HEADERS = {
     "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
 }
 
-app = FastAPI(title="Zynochat Auth Proxy")
+app = FastAPI(title="Zynochat")
 
-# ── CORS — sirf apna domain allow karo ────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost",
-        "http://localhost:3000",
-        "https://APNI-WEBSITE.com",   # ← apna production domain
-    ],
-    allow_methods=["POST"],
+    allow_origins=["*"],  # production mein sirf apna domain
+    allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
 
+# ─────────────────────────────────────────────────────
+#  HTML Pages Serve karo  (files: static/ folder mein)
+# ─────────────────────────────────────────────────────
+# Folder structure:
+#   project/
+#   ├── server.py
+#   ├── .env
+#   └── static/
+#       ├── login.html
+#       ├── otp.html
+#       └── dashboard.html
 
-# ── Models ─────────────────────────────────────
+@app.get("/")
+async def root():
+    return FileResponse("static/login.html")
+
+@app.get("/login")
+async def login_page():
+    return FileResponse("static/login.html")
+
+@app.get("/otp")
+async def otp_page():
+    return FileResponse("static/otp.html")
+
+@app.get("/dashboard")
+async def dashboard_page():
+    return FileResponse("static/dashboard.html")
+
+# Static assets (CSS, JS, images) ke liye
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+# ─────────────────────────────────────────────────────
+#  Auth API Routes
+# ─────────────────────────────────────────────────────
+
 class EmailRequest(BaseModel):
     email: EmailStr
 
@@ -50,7 +79,6 @@ class OtpVerifyRequest(BaseModel):
     token: str
 
 
-# ── Route 1: OTP Bhejo ─────────────────────────
 @app.post("/auth/send-otp")
 async def send_otp(body: EmailRequest):
     async with httpx.AsyncClient() as client:
@@ -68,7 +96,6 @@ async def send_otp(body: EmailRequest):
     return {"success": True, "message": "OTP bhej diya!"}
 
 
-# ── Route 2: OTP Verify karo ───────────────────
 @app.post("/auth/verify-otp")
 async def verify_otp(body: OtpVerifyRequest):
     if len(body.token) != 6 or not body.token.isdigit():
@@ -87,7 +114,6 @@ async def verify_otp(body: OtpVerifyRequest):
             detail=data.get("msg") or data.get("error_description") or "OTP galat hai"
         )
 
-    # ⚠️ Access token frontend ko mat bhejo — sirf zaroorat ki info bhejo
     user = data.get("user", {})
     return {
         "success": True,
@@ -96,9 +122,8 @@ async def verify_otp(body: OtpVerifyRequest):
             "email": user.get("email"),
             "created_at": user.get("created_at"),
         }
-        # access_token yahan NAHI bhej rahe — server pe session manage karo
     }
 
-
-# ── Run ────────────────────────────────────────
-# uvicorn server:app --host 0.0.0.0 --port 8000
+# ─────────────────────────────────────────────────────
+# Run: uvicorn server:app --host 0.0.0.0 --port 8000
+# ─────────────────────────────────────────────────────
