@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zynochat Login</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body, html { height: 100%; width: 100%; background-color: #ffffff; overflow: hidden; }
+        .app-container { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
+        .header {
+            background-color: #301934; color: white; height: 60px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; font-weight: bold; letter-spacing: 1px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .main-content {
+            flex: 1; display: flex; flex-direction: column; align-items: center;
+            padding: 40px 20px; text-align: center; justify-content: space-around;
+        }
+        .logo-area {
+            width: 120px; height: 120px; border: 2px dashed #301934;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 20px; color: #301934; font-weight: 500;
+        }
+        .input-group { width: 100%; max-width: 400px; }
+        input {
+            width: 100%; padding: 15px; border-radius: 30px;
+            border: 1px solid #ddd; margin-bottom: 20px;
+            font-size: 16px; text-align: center; outline: none;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .btn-send {
+            width: 100%; padding: 15px; border-radius: 30px;
+            background: #ffffff; border: 2px solid #301934;
+            color: #301934; font-size: 18px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+        }
+        .btn-send:active { transform: scale(0.98); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .btn-send:disabled { opacity: 0.6; cursor: not-allowed; }
+        .footer-info { font-weight: 800; color: #000; margin-bottom: 20px; }
+        .bottom-nav { background-color: #301934; height: 50px; width: 100%; }
+        .error-msg {
+            color: #c0392b; font-size: 13px; font-weight: 600;
+            margin-top: -10px; margin-bottom: 12px; display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="header">ZYNOCHAT</div>
+        <div class="main-content">
+            <div class="logo-area">APP LOGO</div>
+            <div class="input-group">
+                <input type="email" id="emailInput" placeholder="Enter your Email">
+                <p class="error-msg" id="errorMsg"></p>
+                <button class="btn-send" id="sendBtn" onclick="handleSendOTP()">SEND OTP</button>
+            </div>
+            <div class="footer-info">End-to-End Encrypted</div>
+        </div>
+        <div class="bottom-nav"></div>
+    </div>
+
+    <script>
+        // ✅ Koi bhi Supabase key nahi hai yahan!
+        // Sirf apne server ka URL — ye secret nahi hota
+        const API_BASE = "https://APNA-SERVER.com"; // ← apna server URL daalo
+
+        const sendBtn    = document.getElementById('sendBtn');
+        const emailInput = document.getElementById('emailInput');
+        const errorMsg   = document.getElementById('errorMsg');
+
+        function showError(msg) { errorMsg.textContent = msg; errorMsg.style.display = 'block'; }
+        function hideError()    { errorMsg.style.display = 'none'; }
+        function setLoading(yes) {
+            sendBtn.disabled = yes;
+            sendBtn.textContent = yes ? 'Bhej raha hoon...' : 'SEND OTP';
+        }
+        function isValidEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
+
+        async function handleSendOTP() {
+            const email = emailInput.value.trim();
+            hideError();
+            if (!email)               { showError('Email daalna zaroori hai!'); return; }
+            if (!isValidEmail(email)) { showError('Sahi email format daalo!'); return; }
+
+            setLoading(true);
+            try {
+                const res = await fetch(`${API_BASE}/auth/send-otp`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'OTP bhejne mein problem aayi');
+
+                localStorage.setItem('zyno_email', email);
+                window.location.href = 'otp.html';
+            } catch (err) {
+                showError('❌ ' + err.message);
+                setLoading(false);
+            }
+        }
+
+        emailInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleSendOTP(); });
+        emailInput.addEventListener('input', hideError);
+    </script>
+</body>
+</html>
